@@ -297,6 +297,44 @@
         .success {
             color: #86efac;
         }
+
+        /* Manual Form Styles */
+        .manual-form {
+            width: 100%;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--cosmic-gold);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            color: var(--gray-300);
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--cosmic-gold);
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+        }
+
+        .form-input::placeholder {
+            color: var(--gray-400);
+        }
     </style>
 </head>
 <body>
@@ -318,6 +356,32 @@
                 </div>
             </div>
 
+            <!-- Manual Entry Form -->
+            <div class="card">
+                <h3 class="card-title">✏️ Manual Entry</h3>
+                <div class="manual-form">
+                    <div class="form-group">
+                        <label for="manualName">Full Name</label>
+                        <input type="text" id="manualName" placeholder="Enter full name" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualDOB">Date of Birth</label>
+                        <input type="text" id="manualDOB" placeholder="DD/MM/YYYY" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualTOB">Time of Birth</label>
+                        <input type="text" id="manualTOB" placeholder="HH:MM (24hr format)" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualPlace">Place of Birth</label>
+                        <input type="text" id="manualPlace" placeholder="City, State, Country" class="form-input">
+                    </div>
+                    <button class="btn" onclick="generateManualPDF()" style="width: 100%; margin-top: 1rem;">Generate Kundali PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top: 2rem;">
             <!-- Processing Status -->
             <div class="card">
                 <h3 class="card-title">⚙️ AI Processing Status</h3>
@@ -325,6 +389,17 @@
                     <div class="status-empty">
                         <div class="status-icon">📋</div>
                         <p>Upload birth records to begin AI analysis</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Display -->
+            <div class="card">
+                <h3 class="card-title">📊 Results & Actions</h3>
+                <div id="resultsContainer">
+                    <div class="status-empty">
+                        <div class="status-icon">📊</div>
+                        <p>Results will appear here after processing</p>
                     </div>
                 </div>
             </div>
@@ -359,13 +434,14 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8000/api';
+        const API_BASE = 'http://localhost:8001/api';
         let currentExtractedData = null;
 
         // Upload zone functionality
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
         const statusContainer = document.getElementById('statusContainer');
+        const resultsContainer = document.getElementById('resultsContainer');
 
         uploadZone.addEventListener('click', () => fileInput.click());
 
@@ -415,12 +491,13 @@
 
                 const result = await response.json();
                 console.log('Analysis result:', result);
-                
+
                 // Store the extracted data
                 currentExtractedData = result.data || [];
-                
+
                 // Show completion status with data
                 showComplete(currentExtractedData);
+                showResults(currentExtractedData);
             } catch (error) {
                 console.error('Error analyzing files:', error);
                 showError(error.message);
@@ -451,32 +528,48 @@
         }
 
         function showComplete(data) {
-            let dataHtml = '';
-            
-            if (data && data.length > 0) {
-                data.forEach((item, index) => {
-                    const extracted = item.extracted_data || {};
-                    dataHtml += `
-                        <div class="data-item">
-                            <div class="data-label">Record ${index + 1}</div>
-                            <div class="data-value"><strong>Name:</strong> ${extracted.name || 'N/A'}</div>
-                            <div class="data-value"><strong>DOB:</strong> ${extracted.dob || 'N/A'}</div>
-                            <div class="data-value"><strong>TOB:</strong> ${extracted.tob || 'N/A'}</div>
-                            <div class="data-value"><strong>Place:</strong> ${extracted.place || 'N/A'}</div>
-                        </div>
-                    `;
-                });
-            }
-
             statusContainer.innerHTML = `
                 <div class="status-complete">
                     <div class="status-icon success">✅</div>
-                    <p class="success">Extraction Complete!</p>
-                    <div class="extracted-data">
-                        <h4 style="color: var(--cosmic-gold); margin-bottom: 1rem;">Extracted Birth Details:</h4>
-                        ${dataHtml}
+                    <p class="success">AI Extraction Complete!</p>
+                    <p style="font-size: 0.9rem; color: var(--gray-400); margin-top: 0.5rem;">
+                        Birth details have been extracted and are ready for PDF generation.
+                    </p>
+                </div>
+            `;
+        }
+
+        function showResults(data) {
+            if (!data || data.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="status-empty">
+                        <div class="status-icon">❌</div>
+                        <p>No data extracted from files</p>
                     </div>
-                    <button class="btn" onclick="generatePDF()">Generate Kundali PDF</button>
+                `;
+                return;
+            }
+
+            let dataHtml = '';
+
+            data.forEach((item, index) => {
+                const extracted = item.extracted_data || {};
+                dataHtml += `
+                    <div class="data-item">
+                        <div class="data-label">Record ${index + 1}</div>
+                        <div class="data-value"><strong>Name:</strong> ${extracted.name || 'N/A'}</div>
+                        <div class="data-value"><strong>DOB:</strong> ${extracted.dob || 'N/A'}</div>
+                        <div class="data-value"><strong>TOB:</strong> ${extracted.tob || 'N/A'}</div>
+                        <div class="data-value"><strong>Place:</strong> ${extracted.place || 'N/A'}</div>
+                    </div>
+                `;
+            });
+
+            resultsContainer.innerHTML = `
+                <div class="extracted-data">
+                    <h4 style="color: var(--cosmic-gold); margin-bottom: 1rem;">📋 Extracted Birth Details:</h4>
+                    ${dataHtml}
+                    <button class="btn" onclick="generatePDF()" style="width: 100%; margin-top: 1rem;">Generate Kundali PDF</button>
                 </div>
             `;
         }
@@ -492,15 +585,15 @@
             `;
         }
 
-        async function generatePDF() {
-            if (!currentExtractedData || currentExtractedData.length === 0) {
+        async function generatePDF(data = null) {
+            const dataToSend = data || (currentExtractedData && currentExtractedData.length > 0 ? currentExtractedData[0]?.extracted_data : null);
+
+            if (!dataToSend) {
                 alert('No data available for PDF generation');
                 return;
             }
 
             try {
-                const dataToSend = currentExtractedData[0]?.extracted_data || {};
-                
                 const response = await fetch(`${API_BASE}/generate-kundali`, {
                     method: 'POST',
                     headers: {
@@ -528,8 +621,45 @@
             }
         }
 
-        // Make generatePDF available globally
+        async function generateManualPDF() {
+            const name = document.getElementById('manualName').value.trim();
+            const dob = document.getElementById('manualDOB').value.trim();
+            const tob = document.getElementById('manualTOB').value.trim();
+            const place = document.getElementById('manualPlace').value.trim();
+
+            if (!name || !dob || !tob || !place) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const manualData = {
+                name: name,
+                dob: dob,
+                tob: tob,
+                place: place
+            };
+
+            // Show in results
+            resultsContainer.innerHTML = `
+                <div class="extracted-data">
+                    <h4 style="color: var(--cosmic-gold); margin-bottom: 1rem;">📝 Manual Entry Details:</h4>
+                    <div class="data-item">
+                        <div class="data-value"><strong>Name:</strong> ${name}</div>
+                        <div class="data-value"><strong>DOB:</strong> ${dob}</div>
+                        <div class="data-value"><strong>TOB:</strong> ${tob}</div>
+                        <div class="data-value"><strong>Place:</strong> ${place}</div>
+                    </div>
+                    <button class="btn" onclick="generatePDF(${JSON.stringify(manualData).replace(/"/g, '&quot;')})" style="width: 100%; margin-top: 1rem;">Generate Kundali PDF</button>
+                </div>
+            `;
+
+            // Generate PDF
+            await generatePDF(manualData);
+        }
+
+        // Make functions available globally
         window.generatePDF = generatePDF;
+        window.generateManualPDF = generateManualPDF;
     </script>
 </body>
 </html>
